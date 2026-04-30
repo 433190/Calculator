@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Calculator</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=IBM+Plex+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0e0e0f;
+      --surface: #1a1a1c;
+      --surface2: #242426;
+      --border: #2e2e32;
+      --accent: #e8ff47;
+      --accent2: #ff6b35;
+      --text: #f0f0f0;
+      --muted: #888;
+      --btn-bg: #1e1e21;
+      --btn-hover: #2a2a2e;
+      --btn-active: #333338;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'IBM Plex Mono', monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1rem;
+    }
+
+    /* Background grid pattern */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(232,255,71,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(232,255,71,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .page { position: relative; z-index: 1; width: 100%; max-width: 420px; }
+
+    /* Header */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 2rem;
+    }
+    .logo {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: 22px;
+      letter-spacing: -0.5px;
+      color: var(--text);
+    }
+    .logo span { color: var(--accent); }
+    .tagline {
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    /* Calculator card */
+    .calc {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 40px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04);
+    }
+
+    /* Display */
+    .display {
+      padding: 1.5rem 1.75rem 1.25rem;
+      border-bottom: 1px solid var(--border);
+      min-height: 110px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      align-items: flex-end;
+      gap: 6px;
+    }
+    .expr {
+      font-size: 13px;
+      color: var(--muted);
+      min-height: 18px;
+      word-break: break-all;
+      text-align: right;
+    }
+    .result {
+      font-size: 48px;
+      font-weight: 300;
+      color: var(--text);
+      word-break: break-all;
+      text-align: right;
+      line-height: 1;
+      transition: color 0.1s;
+    }
+    .result.accent { color: var(--accent); }
+
+    /* Mode tabs */
+    .mode-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+    .mode-tab {
+      flex: 1;
+      padding: 10px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      transition: color 0.15s, background 0.15s;
+      border-right: 1px solid var(--border);
+    }
+    .mode-tab:last-child { border-right: none; }
+    .mode-tab.active { color: var(--accent); background: rgba(232,255,71,0.05); }
+    .mode-tab:hover:not(.active) { color: var(--text); background: var(--btn-hover); }
+
+    /* Button grid */
+    .buttons {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1px;
+      background: var(--border);
+      padding: 0;
+    }
+    .btn {
+      background: var(--btn-bg);
+      border: none;
+      color: var(--text);
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 18px;
+      font-weight: 400;
+      padding: 22px 10px;
+      cursor: pointer;
+      transition: background 0.1s, transform 0.08s, color 0.1s;
+      user-select: none;
+      position: relative;
+      overflow: hidden;
+    }
+    .btn:hover { background: var(--btn-hover); }
+    .btn:active { background: var(--btn-active); transform: scale(0.96); }
+
+    .btn.op { color: var(--accent); font-size: 20px; }
+    .btn.fn { color: #aaa; font-size: 14px; letter-spacing: 0.04em; }
+    .btn.eq {
+      background: var(--accent);
+      color: #111;
+      font-size: 22px;
+      font-weight: 500;
+    }
+    .btn.eq:hover { background: #d4e83f; }
+    .btn.eq:active { background: #c0d435; transform: scale(0.96); }
+    .btn.zero { grid-column: span 2; }
+    .btn.clear { color: var(--accent2); }
+
+    /* History panel */
+    .history-panel {
+      display: none;
+      flex-direction: column;
+    }
+    .history-panel.active { display: flex; }
+    .history-list {
+      max-height: 280px;
+      overflow-y: auto;
+      padding: 1rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .history-list::-webkit-scrollbar { width: 4px; }
+    .history-list::-webkit-scrollbar-track { background: transparent; }
+    .history-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+    .history-entry {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 10px 14px;
+      background: var(--surface2);
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    .history-entry:hover { border-color: rgba(232,255,71,0.3); }
+    .he-expr { font-size: 12px; color: var(--muted); }
+    .he-val { font-size: 16px; color: var(--accent); }
+    .history-empty { text-align: center; color: var(--muted); font-size: 13px; padding: 2rem; }
+    .history-clear {
+      margin: 0 1.5rem 1rem;
+      padding: 10px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--muted);
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 12px;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .history-clear:hover { color: var(--accent2); border-color: var(--accent2); }
+
+    /* Footer */
+    footer {
+      margin-top: 1.5rem;
+      text-align: center;
+      font-size: 11px;
+      color: #444;
+      letter-spacing: 0.06em;
+    }
+
+    /* Ripple */
+    .ripple {
+      position: absolute;
+      border-radius: 50%;
+      background: rgba(232,255,71,0.15);
+      transform: scale(0);
+      animation: ripple 0.4s linear;
+      pointer-events: none;
+    }
+    @keyframes ripple {
+      to { transform: scale(4); opacity: 0; }
+    }
+
+    /* Keypress highlight */
+    .btn.pressed { background: var(--btn-active) !important; }
+  </style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <div class="logo">CALC<span>.</span></div>
+    <div class="tagline">v2.0 — precision tool</div>
+  </header>
+
+  <div class="calc">
+    <div class="display">
+      <div class="expr" id="expr"></div>
+      <div class="result" id="result">0</div>
+    </div>
+
+    <div class="mode-tabs">
+      <button class="mode-tab active" onclick="setMode('calc')">Calculator</button>
+      <button class="mode-tab" onclick="setMode('history')">History</button>
+    </div>
+
+    <!-- Calculator buttons -->
+    <div id="calc-panel">
+      <div class="buttons">
+        <button class="btn fn clear" onclick="action('AC')">AC</button>
+        <button class="btn fn" onclick="action('±')">±</button>
+        <button class="btn fn" onclick="action('%')">%</button>
+        <button class="btn op" onclick="action('÷')">÷</button>
+
+        <button class="btn" onclick="action('7')">7</button>
+        <button class="btn" onclick="action('8')">8</button>
+        <button class="btn" onclick="action('9')">9</button>
+        <button class="btn op" onclick="action('×')">×</button>
+
+        <button class="btn" onclick="action('4')">4</button>
+        <button class="btn" onclick="action('5')">5</button>
+        <button class="btn" onclick="action('6')">6</button>
+        <button class="btn op" onclick="action('−')">−</button>
+
+        <button class="btn" onclick="action('1')">1</button>
+        <button class="btn" onclick="action('2')">2</button>
+        <button class="btn" onclick="action('3')">3</button>
+        <button class="btn op" onclick="action('+')">+</button>
+
+        <button class="btn zero" onclick="action('0')">0</button>
+        <button class="btn" onclick="action('.')">.</button>
+        <button class="btn eq" onclick="action('=')">=</button>
+      </div>
+    </div>
+
+    <!-- History panel -->
+    <div class="history-panel" id="history-panel">
+      <div class="history-list" id="history-list">
+        <div class="history-empty" id="history-empty">No history yet</div>
+      </div>
+      <button class="history-clear" onclick="clearHistory()">Clear history</button>
+    </div>
+  </div>
+
+  <footer>PRESS KEYS OR TAP · KEYBOARD SUPPORTED</footer>
+</div>
+
+<script>
+  let current = '0';
+  let stored = null;
+  let operator = null;
+  let justEvaled = false;
+  let exprStr = '';
+  let history = [];
+
+  const resultEl = document.getElementById('result');
+  const exprEl = document.getElementById('expr');
+
+  function updateDisplay(flash) {
+    resultEl.textContent = current;
+    exprEl.textContent = exprStr;
+    if (flash) {
+      resultEl.classList.add('accent');
+      setTimeout(() => resultEl.classList.remove('accent'), 300);
+    }
+  }
+
+  function action(val) {
+    if (val === 'AC') {
+      current = '0'; stored = null; operator = null;
+      justEvaled = false; exprStr = '';
+      updateDisplay();
+      return;
+    }
+    if (val === '±') {
+      current = current.startsWith('-') ? current.slice(1) : (current !== '0' ? '-' + current : '0');
+      updateDisplay(); return;
+    }
+    if (val === '%') {
+      current = String(parseFloat(current) / 100);
+      updateDisplay(); return;
+    }
+    if (['+', '−', '×', '÷'].includes(val)) {
+      if (operator && !justEvaled) evaluate(true);
+      stored = parseFloat(current);
+      operator = val;
+      exprStr = current + ' ' + val;
+      justEvaled = false;
+      current = '0';
+      updateDisplay(); return;
+    }
+    if (val === '=') {
+      if (!operator) return;
+      evaluate(false);
+      return;
+    }
+    if (val === '.') {
+      if (justEvaled) { current = '0'; justEvaled = false; }
+      if (!current.includes('.')) current += '.';
+      updateDisplay(); return;
+    }
+    // digit
+    if (justEvaled) { current = val; justEvaled = false; }
+    else current = current === '0' ? val : current + val;
+    updateDisplay();
+  }
+
+  function evaluate(chain) {
+    const a = stored;
+    const b = parseFloat(current);
+    let res;
+    if (operator === '+') res = a + b;
+    else if (operator === '−') res = a - b;
+    else if (operator === '×') res = a * b;
+    else if (operator === '÷') res = b === 0 ? 'Error' : a / b;
+
+    const entry = { expr: `${a} ${operator} ${b}`, val: res };
+    history.unshift(entry);
+    renderHistory();
+
+    exprStr = chain ? '' : `${a} ${operator} ${b} =`;
+    current = res === 'Error' ? 'Error' : String(+parseFloat(res).toFixed(10));
+    if (!chain) { stored = null; operator = null; justEvaled = true; }
+    else { stored = parseFloat(current); }
+    updateDisplay(!chain);
+  }
+
+  function renderHistory() {
+    const list = document.getElementById('history-list');
+    const empty = document.getElementById('history-empty');
+    list.querySelectorAll('.history-entry').forEach(e => e.remove());
+    if (history.length === 0) { empty.style.display = ''; return; }
+    empty.style.display = 'none';
+    history.slice(0, 20).forEach(h => {
+      const div = document.createElement('div');
+      div.className = 'history-entry';
+      div.innerHTML = `<span class="he-expr">${h.expr}</span><span class="he-val">${+parseFloat(h.val).toFixed(10)}</span>`;
+      div.onclick = () => { current = String(h.val); justEvaled = true; updateDisplay(); setMode('calc'); };
+      list.appendChild(div);
+    });
+  }
+
+  function clearHistory() { history = []; renderHistory(); }
+
+  function setMode(mode) {
+    document.querySelectorAll('.mode-tab').forEach((t, i) => {
+      t.classList.toggle('active', (i === 0 && mode === 'calc') || (i === 1 && mode === 'history'));
+    });
+    document.getElementById('calc-panel').style.display = mode === 'calc' ? '' : 'none';
+    document.getElementById('history-panel').classList.toggle('active', mode === 'history');
+  }
+
+  // Ripple effect
+  document.querySelectorAll('.btn').forEach(btn => {
+    btn.addEventListener('click', function(e) {
+      const r = document.createElement('span');
+      r.className = 'ripple';
+      const rect = this.getBoundingClientRect();
+      const size = Math.max(rect.width, rect.height);
+      r.style.cssText = `width:${size}px;height:${size}px;left:${e.clientX - rect.left - size/2}px;top:${e.clientY - rect.top - size/2}px`;
+      this.appendChild(r);
+      setTimeout(() => r.remove(), 400);
+    });
+  });
+
+  // Keyboard support
+  const keyMap = {
+    '0':'0','1':'1','2':'2','3':'3','4':'4','5':'5','6':'6','7':'7','8':'8','9':'9',
+    '.':'.','Enter':'=','=':'=','Backspace':'AC','Escape':'AC',
+    '+':'+','-':'−','*':'×','/':'÷','%':'%'
+  };
+  document.addEventListener('keydown', e => {
+    const k = keyMap[e.key];
+    if (k) { e.preventDefault(); action(k); }
+  });
+
+  updateDisplay();
+</script>
+</body>
+</html>
